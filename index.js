@@ -67,18 +67,14 @@ var implementation = (function Filesystem(){
             error();
         } else {
             createDirectoryStructure(relativePath);
-            fs.writeFile(relativePath, body, function(){
-                success();
-            });
+            fs.writeFile(relativePath, body, success);
         }
     }
     
     function update(relativePath, body, success, error){
         if(fs.existsSync(relativePath)){
             createDirectoryStructure(relativePath);
-            fs.writeFile(relativePath, body, function(){
-                success();
-            });
+            fs.writeFile(relativePath, body, success);
         } else {
             error();
         }
