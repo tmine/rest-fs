@@ -1,7 +1,7 @@
 var path = require("path");
 var fs = require("fs");
 
-var rootDirectory = __dirname;    // TODO: use configuration parameter
+var rootDirectory = process.argv[2] || __dirname;    // TODO: use configuration parameter
 
 require("http").createServer(function(req, res) {
     var relativePath = path.relative(rootDirectory, "." + req.url);
