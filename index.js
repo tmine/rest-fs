@@ -5,72 +5,96 @@ var rootDirectory = process.argv[2] || __dirname;    // TODO: use configuration 
 
 require("http").createServer(function(req, res) {
     var relativePath = path.relative(rootDirectory, "." + req.url);
-    console.log(relativePath);
-    
-    switch(req.method){
-        case "GET":
-            if(fs.existsSync(relativePath) && fs.statSync(relativePath).isFile()){
-                res.statusCode = 200;
-                fs.createReadStream(relativePath).pipe(res);
-            } else {
-                res.statusCode = 404;
-                res.end("");
-            }
-            return;
-        case "PUT":
-            if(fs.existsSync(relativePath)){
-                res.statusCode = 403;
-                res.end("");
-            } else {
-                var body = [];
-                req.on('data', function(chunk){
-                    body.push(chunk);
-                }).on('end', function(){
-                    body = Buffer.concat(body).toString();
-                    createDirectoryStructure(relativePath);
-                    fs.writeFile(relativePath, body, function(){
-                        res.statusCode = 200;
-                        res.end("");
-                    });
-                });
-            }
-            return;
-        case "POST":
-            if(fs.existsSync(relativePath)){
-                var body = [];
-                req.on('data', function(chunk){
-                    body.push(chunk);
-                }).on('end', function(){
-                    body = Buffer.concat(body).toString();
-                    createDirectoryStructure(relativePath);
-                    fs.writeFile(relativePath, body, function(){
-                        res.statusCode = 200;
-                        res.end("");
-                    });
-                });
-            } else {
-                res.statusCode = 404;
-                res.end("");
-            }
-            return;
-        case "DELETE":
-            if(fs.existsSync(relativePath) && fs.statSync(relativePath).isFile()){
-                fs.unlink(relativePath, function(){
-                    // TODO: cleanup empty directories
+    var body = [];
+    req.on('data', function(chunk){
+        body.push(chunk);
+    }).on('end', function(){
+        body = Buffer.concat(body).toString();
+        
+        switch(req.method){
+            case "GET":
+                get(relativePath, function(stream){
                     res.statusCode = 200;
+                    stream.pipe(res);
+                }, function(){
+                    res.statusCode = 404;
                     res.end("");
                 });
-            } else {
-                res.statusCode = 404;
-                res.end("");
-            }
-            return;
-    }
-    
-    res.statusCode = 400;
-    res.end("");
+                return;
+            case "PUT":
+                create(relativePath, body, function(){
+                    res.statusCode = 200;
+                    res.end("");
+                }, function(){
+                    res.statusCode = 403;
+                    res.end("");
+                });
+                return;
+            case "POST":
+                update(relativePath, body, function(){
+                    res.statusCode = 200;
+                    res.end("");
+                }, function(){
+                    res.statusCode = 404;
+                    res.end("");
+                });
+                return;
+            case "DELETE":
+                remove(relativePath, function(){
+                    res.statusCode = 200;
+                    res.end("");
+                }, function(){
+                    res.statusCode = 404;
+                    res.end("");
+                });
+                return;
+        }
+        
+        res.statusCode = 400;
+        res.end("");
+    });
 }).listen(process.env.PORT, process.env.IP);
 
+function get(relativePath, success, error){
+    if(fs.existsSync(relativePath) && fs.statSync(relativePath).isFile()){
+        success(fs.createReadStream(relativePath));
+    } else {
+        error();
+    }
+}
+
+function create(relativePath, body, success, error){
+    if(fs.existsSync(relativePath)){
+        error();
+    } else {
+        createDirectoryStructure(relativePath);
+        fs.writeFile(relativePath, body, function(){
+            success();
+        });
+    }
+}
+
+function update(relativePath, body, success, error){
+    if(fs.existsSync(relativePath)){
+        createDirectoryStructure(relativePath);
+        fs.writeFile(relativePath, body, function(){
+            success();
+        });
+    } else {
+        error();
+    }
+}
+
+function remove(relativePath, success, error){
+    if(fs.existsSync(relativePath) && fs.statSync(relativePath).isFile()){
+        fs.unlink(relativePath, function(){
+            // TODO: cleanup empty directories
+            success();
+        });
+    } else {
+        error();
+    }
+}
 
 function createDirectoryStructure(dir){
     dir.split('/').reduce(function(prev, curr, i) {
